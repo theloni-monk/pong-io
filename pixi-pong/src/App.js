@@ -14,6 +14,7 @@ class App extends React.Component {
         <p className="App-intro">
           here's a shitty game of pong For the lonely:
         </p>
+        
         <Game/>
       </div>
     );
