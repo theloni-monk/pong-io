@@ -7,6 +7,7 @@ const bSize = 16;
 const pSize = [16, 90];
 const pOffset = 30;
 //TODO: add sounds on collisions and various events
+//TODO: load more pixelated font
 
 class pongball {
 	g: Pixi.Graphics
@@ -132,27 +133,28 @@ function sleep(ms: number) {
 interface IMainProps { }
 interface IMainState { }
 class GameFrame extends React.Component<IMainProps, IMainState>{
-	props: any
-	state: any
-	app: Pixi.Application
-	gameCanvas: HTMLDivElement
-	G: Pixi.Graphics
-	beginButton: Pixi.Text
-	P1score: Pixi.Text
-	P2score: Pixi.Text
-	scores: number[]
-	gameOver: boolean
-	ball: pongball
-	ballVel: number
-	paddle1: paddle
-	//paddle2: paddle
+	public props: any
+	public state: any
+	protected app: Pixi.Application
+	protected _updatefuncpointer: any
+	protected gameCanvas: HTMLDivElement
+	protected G: Pixi.Graphics
+	private beginButton: Pixi.Text
+	private P1score: Pixi.Text
+	private P2score: Pixi.Text
+	public scores: number[]
+	public gameOver: boolean
+	protected  ball: pongball
+	public ballVel: number
+	protected paddle1: paddle
+	//protected paddle2: paddle
 
 	constructor(props: any) {
 		super(props);
 		this.props = props;
 		this.scores = [0, 0];
 		this.G = new Pixi.Graphics();
-		this.ballVel = 4;
+		this.ballVel = 3.75; // we immediately add 0.25
 		this.gameOver = false;
 	}
 
@@ -162,14 +164,14 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 			width: windowbounds[0],
 			height: windowbounds[1],
 			backgroundColor: 0x000000,
-			antialias: true
+			//antialias: true
 		});
 
 		this.gameCanvas.appendChild(this.app.view);
 		this.app.start(); //start renderer;
 		this.app.stage.addChild(this.G);
-		this.app.ticker.autoStart = false;
-		this.app.ticker.stop();
+		//this.app.ticker.autoStart = false;
+		//this.app.ticker.stop();
 
 		this.initGame();
 	}
@@ -191,10 +193,10 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 		this.app.stage.addChild(this.beginButton);
 
 		this.beginButton.on('pointerdown', () => {
-			console.log("button triggered")
-			this.app.ticker.add((delta) => {
-				this.updateGame(delta);
-			}); //create update timer
+			console.log("beginButton triggered")
+			
+			this._updatefuncpointer = (delta: number) => {this.updateGame(delta)}; //create update timer
+			this.app.ticker.add(this._updatefuncpointer)
 			this.props.buttonfunc(); //start timer in DOM
 			this.app.stage.removeChild(this.beginButton);
 
@@ -208,9 +210,9 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 		//this.paddle2 = new paddle({
 		//	  xPos: windowbounds[0]-pOffset
 		//});
+		this.app.stage.addChild(this.paddle1.g);
 
-		//DONE: have paddles/ball remain the same object
-		// set the ball in a rand direction:
+		// create ball and set velocities in a rand direction:
 		let dir = Math.floor(Math.random() * 2) ? 1 : -1
 		let angle = Math.ceil(Math.random() * (Math.PI)); // send the ball at velocity ballVel in random angle
 		this.ball = new pongball({
@@ -219,31 +221,29 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 			Vx: this.ballVel * Math.cos(angle) * dir,
 			Vy: this.ballVel * Math.sin(angle) * dir
 		});
-
+ 
 		this.app.stage.addChild(this.ball.g);
-		this.app.stage.addChild(this.paddle1.g);
-		//this.app.stage.addChild(this.paddle2.g);
-
-		this.app.ticker.start();
 	}
 
 	async loadStage() {
-
 		this.app.ticker.stop(); //stop updates
-		this.ball.g.clear();
-		this.app.stage.removeChild(this.ball.g);
-		delete this.ball;
+		//console.log("loadStage called")
 
+		if(this.ball){
+			this.ball.g.clear();
+			this.app.stage.removeChild(this.ball.g);
+			delete this.ball;	
+		}
 		this.ballVel += 0.2; //each level gets faster
+
 		this.drawScene();
 		this.drawScore();
-		//DONE implement countdown so the game doesnt immediately startover 
+
 		this.props.buttonfunc(true, false); // pause timer in DOM
-		await sleep(500);
+		await sleep(300); // subltle pause lets users relax
 		this.props.buttonfunc(); // unpause timer in DOM
 
-		//DONE: have paddles/ball remain the same object
-		// set the ball in a rand direction:
+		// create and set the ball in a rand direction:
 		let dir = Math.floor(Math.random() * 2) ? 1 : -1
 		let angle = Math.ceil(Math.random() * (Math.PI)); // send the ball at velocity ballVel in random angle
 		this.ball = new pongball({
@@ -252,19 +252,17 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 			Vx: this.ballVel * Math.cos(angle) * dir,
 			Vy: this.ballVel * Math.sin(angle) * dir
 		});
-
-
+ 
 		this.app.stage.addChild(this.ball.g);
-		this.app.stage.addChild(this.paddle1.g);
-		//this.app.stage.addChild(this.paddle2.g);
-		this.app.ticker.start();
+
+		this.app.ticker.start()
 	}
 
 	endGame = () => {
 		this.gameOver = true;
-		//DONE:? update not removed from ticker
-		this.app.ticker.remove((delta) => { this.updateGame(delta) });
-		this.app.ticker.stop()
+
+		this.app.ticker.remove(this._updatefuncpointer)
+
 		this.drawScore();
 		this.props.buttonfunc(true, false)
 		if (this.scores[0] === this.scores[1]) { //tie game
@@ -289,7 +287,7 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 
 			tieText2.anchor.set(0.5)
 			tieText2.position.set(Math.floor(3 * windowbounds[0] / 4), Math.floor(windowbounds[1] / 2));
-			tieText2.resolution = 1;
+			tieText2.resolution = 2;
 			this.app.stage.addChild(tieText2);
 		}
 		else {
@@ -303,7 +301,7 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 			winText.anchor.set(0.5)
 			//set to the side of the winner
 			winText.position.set(Math.floor(this.scores[0] < this.scores[1] ? windowbounds[0] / 4 : 3 * windowbounds[0] / 4), Math.floor(windowbounds[1] / 2));
-			winText.resolution = 1;
+			winText.resolution = 2;
 			this.app.stage.addChild(winText);
 		}
 	}
@@ -411,11 +409,10 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 		this.app.stop();
 	}
 
-	//FIXME: keypress not handled
 	handlePress = (E: KeyboardEvent) => {
 		console.log("handlepress called: " + E.toString())
 		switch (E.key) {
-			
+
 			case "Escape":
 				if (!this.gameOver) { //only close if game is not over
 					console.log("Game Closing on Escape")
