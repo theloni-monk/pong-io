@@ -24,7 +24,7 @@ class Game extends React.Component{
                     <div className = "timer">{this.state.timer}</div>
                     <div className = "Pname" id = "2">P2: {this.state.P2name}</div>
                 </div>
-            <div className = "GameFrameContainer"> <GameFrame buttonfunc = {this.start}/> </div>
+            <div className = "GameFrameContainer"> <GameFrame buttonfunc = {this.timer}/> </div>
             </div>
         );
     }
@@ -34,22 +34,24 @@ class Game extends React.Component{
         //0:0.0 or 0:00.0 so it needs ternary logic
         this.setState({timer: ((this.seconds-((this.seconds)%60))/60).toString()+":"+((this.seconds)%60).toString().substring(0, (this.seconds%60)<10 ? 3:4)});
     }
-    start = (stop = false) => {
-        console.log(stop ? "stop":"start" + " called in game.js")
-        if(!stop && !this.state.started){
-            this.interval = setInterval(() => this.tick(), 100);
-            this.setState({started:true});
-        }
-        else if (!stop && this.state.started){ // just reset clock if its called but already running
-            this.seconds = 0;
-            this.setState({timer:"0:0.0"})
-        }
-        else if(stop){
+    timer = (pause = false, reset = false) => {
+        //console.log(pause ? "stop":"start" + " called in game.js")
+        if(reset){ // reset
             clearInterval(this.interval); 
             this.seconds = 0;
-            this.setState({timer:"0:0.0"})
+            this.setState({started:true, timer:"0:0.0" });
         }
-
+        else if(!this.state.started){ // start
+            this.seconds = 0;
+            this.setState({started:true, timer:"0:0.0" });
+            this.interval = setInterval(() => this.tick(), 100);
+        }
+        else if(pause){ // pause
+            clearInterval(this.interval); 
+        }
+        else if (!pause && this.state.started){ // unpause
+            this.interval = setInterval(() => this.tick(), 100);
+        }
     }
     componentDidMount() {
     }
