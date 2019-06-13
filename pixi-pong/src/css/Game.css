@@ -1,5 +1,32 @@
 .GameFrameContainer{
+    width: 700px;
+    height: 500px;
+    padding: 50px;
+    background-color: rgb(100,100,100);
     display: grid;
     justify-content: center;
+}
 
+.GameHeader {
+    justify-self: center;
+    display: grid;
+    font-family: teko;
+    font-size: 2.5em;
+    grid-template-columns: 25% 25%  25% 25%;
+    grid-template-rows: 50px 50px;
+}
+
+.PnameO{
+    grid-column: 1 / 2;
+    grid-row: 1 / 3;
+}
+.FirstTo{
+    grid-column: 2 / 4;
+}
+.PnameT{
+    grid-column: 4 / end;
+    grid-row: 1/ last-line;
+}
+.timer{
+    grid-column: 2/4;
 }
