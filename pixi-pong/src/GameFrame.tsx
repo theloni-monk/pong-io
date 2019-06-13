@@ -2,6 +2,7 @@ import * as React from 'react';
 import * as Pixi from 'pixi.js';
 
 //constants:
+const winVal = 7;
 const windowbounds: number[] = [700, 500];
 const bSize = 16;
 const pSize = [16, 90];
@@ -55,6 +56,7 @@ class pongball {
 			//		  Bounces off left paddle logic: it needs to be on or behind the paddle and within the rectangle height of the paddle
 			if ((this.rectBounds[0][0] <= pSize[0] + pOffset) && (PaddleYPos_both[0] <= this.rectBounds[0][1] && this.rectBounds[1][1] <= PaddleYPos_both[0] + pSize[1])) {
 				console.log("P1 hit")
+				//TODO: add math for collisions to send in dir based on where paddle was hit
 				this.Vx = -this.Vx * 1.1 // invert Vx on paddle collision
 				this.pBounceInvin = 15 // set invin frames
 				bouncing = true;
@@ -144,7 +146,7 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 	private P2score: Pixi.Text
 	public scores: number[]
 	public gameOver: boolean
-	protected  ball: pongball
+	protected ball: pongball
 	public ballVel: number
 	protected paddle1: paddle
 	//protected paddle2: paddle
@@ -176,6 +178,7 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 		this.initGame();
 	}
 
+	//THOUGHT: here exchange Win Const 
 	initGame = () => {
 		console.log("begingame called");
 		this.G.clear();
@@ -194,8 +197,8 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 
 		this.beginButton.on('pointerdown', () => {
 			console.log("beginButton triggered")
-			
-			this._updatefuncpointer = (delta: number) => {this.updateGame(delta)}; //create update timer
+
+			this._updatefuncpointer = (delta: number) => { this.updateGame(delta) }; //create update timer
 			this.app.ticker.add(this._updatefuncpointer)
 			this.props.buttonfunc(); //start timer in DOM
 			this.app.stage.removeChild(this.beginButton);
@@ -221,18 +224,19 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 			Vx: this.ballVel * Math.cos(angle) * dir,
 			Vy: this.ballVel * Math.sin(angle) * dir
 		});
- 
+
 		this.app.stage.addChild(this.ball.g);
 	}
 
+	//THOUGHT: on loadstage exchange scores to see if sync error occured
 	async loadStage() {
 		this.app.ticker.stop(); //stop updates
 		//console.log("loadStage called")
 
-		if(this.ball){
+		if (this.ball) {
 			this.ball.g.clear();
 			this.app.stage.removeChild(this.ball.g);
-			delete this.ball;	
+			delete this.ball;
 		}
 		this.ballVel += 0.2; //each level gets faster
 
@@ -252,12 +256,13 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 			Vx: this.ballVel * Math.cos(angle) * dir,
 			Vy: this.ballVel * Math.sin(angle) * dir
 		});
- 
+
 		this.app.stage.addChild(this.ball.g);
 
 		this.app.ticker.start()
 	}
 
+	//sends endgame
 	endGame = () => {
 		this.gameOver = true;
 
@@ -380,8 +385,11 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 	}
 
 	//TODO: implement DNS lookup && p2p network streaming 
-	updatePaddles = (Mevent1: any) => {
+	//TODO: inheirit socket connected to match room
+	//sends local mouse event
+	updatePaddle1Pos_mouse = (Mevent1: any) => {
 		if (this.paddle1) { this.paddle1.updatePos_mouse(Mevent1); }
+		//send Mouse event over socket
 		//this.paddle2.update(event);
 	}
 
@@ -392,7 +400,7 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 		if (this.ball.cFlag) {
 			this.scores[this.ball.cFlag === 'P1L' ? 0 : 1]++;
 			//TODO: inherit win const
-			this.scores[this.ball.cFlag === 'P1L' ? 0 : 1] < 7 ? this.loadStage() : this.endGame();
+			this.scores[this.ball.cFlag === 'P1L' ? 0 : 1] < winVal ? this.loadStage() : this.endGame();
 
 		}
 	}
@@ -431,7 +439,7 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 		return (
 			<div className="GameFrameWrapper">
 				<div ref={(thisDiv: HTMLDivElement) => { component.gameCanvas = thisDiv }}
-					onMouseMove={(e) => { component.updatePaddles(e); }}
+					onMouseMove={(e) => { component.updatePaddle1Pos_mouse(e); }}
 				/>
 			</div>
 		); //

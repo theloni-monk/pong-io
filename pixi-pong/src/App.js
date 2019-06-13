@@ -1,6 +1,6 @@
 import React from 'react';
 import Game from './Game';
-import logo from './assets/logo.svg';
+import logo from './assets/ttr.svg';
 import './css/App.css';
 
 class App extends React.Component {
@@ -11,11 +11,12 @@ class App extends React.Component {
           <img src={logo} className="App-logo" alt="logo" />
           <h2>Pong</h2>
         </div>
-        <p className="App-intro">
-          here's a shitty game of pong For the lonely:
+        <p className="App-intro" >
+          Basic pong recreation written to learn pixi.js, typescript, socketio, and node
         </p>
-        
-        <Game/>
+        <div className = "GameBox">
+          <Game/>
+        </div>
       </div>
     );
   }

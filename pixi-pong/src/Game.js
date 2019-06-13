@@ -8,21 +8,22 @@ class Game extends React.Component{
         this.seconds = 0;
         this.state = {
             P1name: 'Theo',
-            P2name: 'RoboCop',
+            P2name: 'Robot', 
             BestOf: 7,
             timer: "0:0.0",
             started: false
         }; //todo props inherit
         this.tick.bind(this);
     }
+    //WRITEME: match finding logic and giving socket to gameframe
     render(){
         return (
             <div className = "GameContainer">
                 <div className = "GameHeader">
-                    <div className = "Pname" id = "1">P1: {this.state.P1name}</div> 
-                    <div className = "BestOf">Best of {this.state.BestOf}</div>
+                    <div className = "PnameO" id = "1">P1: {this.state.P1name}</div> 
+                    <div className = "FirstTo">First To {this.state.BestOf}</div>
+                    <div className = "PnameT" id = "2">P2: {this.state.P2name}</div>
                     <div className = "timer">{this.state.timer}</div>
-                    <div className = "Pname" id = "2">P2: {this.state.P2name}</div>
                 </div>
             <div className = "GameFrameContainer"> <GameFrame buttonfunc = {this.timer}/> </div>
             </div>
