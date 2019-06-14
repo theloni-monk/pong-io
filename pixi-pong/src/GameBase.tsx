@@ -132,11 +132,11 @@ function sleep(ms: number) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-interface IMainProps { }
-interface IMainState { }
-class GameFrame extends React.Component<IMainProps, IMainState>{
-	public props: any
-	public state: any
+interface GBProps { 
+	buttonfunc: any
+}
+interface GBState {}
+class GameBase extends React.Component<GBProps, GBState>{
 	protected app: Pixi.Application
 	protected _updatefuncpointer: any
 	protected gameCanvas: HTMLDivElement
@@ -153,7 +153,6 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 
 	constructor(props: any) {
 		super(props);
-		this.props = props;
 		this.scores = [0, 0];
 		this.G = new Pixi.Graphics();
 		this.ballVel = 3.75; // we immediately add 0.25
@@ -446,4 +445,4 @@ class GameFrame extends React.Component<IMainProps, IMainState>{
 	}
 }
 
-export default GameFrame;
+export default GameBase;

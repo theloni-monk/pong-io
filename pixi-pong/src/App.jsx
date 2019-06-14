@@ -1,5 +1,5 @@
 import React from 'react';
-import Game from './Game';
+import GameWrapper from './GameWrapper.jsx';
 import logo from './assets/ttr.svg';
 import './css/App.css';
 
@@ -12,10 +12,10 @@ class App extends React.Component {
           <h2>Pong</h2>
         </div>
         <p className="App-intro" >
-          Basic pong recreation written to learn pixi.js, typescript, socketio, and node
+          Basic pong recreation written to learn typescript, pixi.js, socketio, and node
         </p>
-        <div className = "GameBox">
-          <Game/>
+        <div className="GameBox">
+          <GameWrapper />
         </div>
       </div>
     );
