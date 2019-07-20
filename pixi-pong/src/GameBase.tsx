@@ -1,6 +1,8 @@
 import * as React from 'react';
 import * as Pixi from 'pixi.js';
 
+const _DEBUG = true; //rn this stops the ball from moving
+
 //constants:
 const winVal = 7;
 const windowbounds: number[] = [700, 500];
@@ -10,6 +12,7 @@ const pOffset = 30;
 //TODO: add sounds on collisions and various events
 //TODO: load more pixelated font
 
+//FIXME: sync pongball
 class pongball {
 	g: Pixi.Graphics
 	pos: number[]
@@ -34,10 +37,11 @@ class pongball {
 	//handles bouncing and collision detection, sets collision flag on player loss
 	updatePos = (delta: number, PaddleYPos_both: number[]) => {
 		//console.log("pongball updated")
-		this.pos[0] += this.Vx * delta;
-		this.pos[1] += this.Vy * delta;
-		this.rectBounds = [[this.pos[0] - bSize / 2, this.pos[1] - bSize / 2], [this.pos[0] + bSize / 2, this.pos[1] + bSize / 2]];
-
+		if (!_DEBUG) {
+			this.pos[0] += this.Vx * delta;
+			this.pos[1] += this.Vy * delta;
+			this.rectBounds = [[this.pos[0] - bSize / 2, this.pos[1] - bSize / 2], [this.pos[0] + bSize / 2, this.pos[1] + bSize / 2]];
+		}
 		// Collision detection //
 		let bouncing = false; // can't bounce on multiple things in one frame
 		// it can't bounce on the same object within 5 frames
@@ -112,11 +116,11 @@ class paddle {
 		this.g = new Pixi.Graphics();
 		this.rectBounds = [[this.xPos, this.yPos], [this.xPos + pSize[0], this.yPos + pSize[1]]];
 	}
-	updatePos_mouse = (event: any) => {
+	updatePos_mouse = (yPos_M: number) => {
 		//console.log("Coordinates: (" + event.clientX + "," + event.clientY + ")");
-		this.yPos = Math.max(event.clientY - 342, 0); //NOTE: this just kinda works
+		this.yPos = Math.max(yPos_M, 0);
 		this.yPos = Math.min(this.yPos, windowbounds[1] - pSize[1]);
-		//console.log("yPos: "+this.yPos);
+		//console.log("yPos: " + this.yPos);
 		this.rectBounds = [[this.xPos, this.yPos], [this.xPos + pSize[0], this.yPos + pSize[1]]];
 	}
 	draw = () => {
@@ -132,11 +136,15 @@ function sleep(ms: number) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-interface GBProps { 
-	buttonfunc: any
+var socket: SocketIO.Socket;
+
+interface GBProps {
+	buttonfunc: any;
+	socket: SocketIO.Socket;
 }
-interface GBState {}
+interface GBState { }
 class GameBase extends React.Component<GBProps, GBState>{
+	//protected socket: SocketIO.Socket
 	protected app: Pixi.Application
 	protected _updatefuncpointer: any
 	protected gameCanvas: HTMLDivElement
@@ -149,10 +157,11 @@ class GameBase extends React.Component<GBProps, GBState>{
 	protected ball: pongball
 	public ballVel: number
 	protected paddle1: paddle
-	//protected paddle2: paddle
+	protected paddle2: paddle
 
 	constructor(props: any) {
 		super(props);
+		socket = this.props.socket;
 		this.scores = [0, 0];
 		this.G = new Pixi.Graphics();
 		this.ballVel = 3.75; // we immediately add 0.25
@@ -177,7 +186,7 @@ class GameBase extends React.Component<GBProps, GBState>{
 		this.initGame();
 	}
 
-	//THOUGHT: here exchange Win Const 
+	//TODO: socket handshake and shit
 	initGame = () => {
 		console.log("begingame called");
 		this.G.clear();
@@ -209,10 +218,12 @@ class GameBase extends React.Component<GBProps, GBState>{
 		this.paddle1 = new paddle({
 			xPos: pOffset
 		});
-		//this.paddle2 = new paddle({
-		//	  xPos: windowbounds[0]-pOffset
-		//});
+		this.paddle2 = new paddle({
+			xPos: windowbounds[0] - pOffset
+		});
+		socket.on('MEVENT_C', (mPosP2: number) => { this.updatePaddle2Pos_network(mPosP2) })
 		this.app.stage.addChild(this.paddle1.g);
+		this.app.stage.addChild(this.paddle2.g);
 
 		// create ball and set velocities in a rand direction:
 		let dir = Math.floor(Math.random() * 2) ? 1 : -1
@@ -383,22 +394,31 @@ class GameBase extends React.Component<GBProps, GBState>{
 		this.app.stage.addChild(this.P2score);
 	}
 
-	//TODO: implement DNS lookup && p2p network streaming 
-	//TODO: inheirit socket connected to match room
-	//sends local mouse event
-	updatePaddle1Pos_mouse = (Mevent1: any) => {
-		if (this.paddle1) { this.paddle1.updatePos_mouse(Mevent1); }
-		//send Mouse event over socket
-		//this.paddle2.update(event);
+	updatePaddle1Pos_mouse = (mEvent1: any) => {
+
+		let bounds = mEvent1.target.getBoundingClientRect();
+		console.log("bounds.top: " + bounds.top)
+
+		console.log("abs mouse y pos:" + mEvent1.clientY);
+		let y: number = mEvent1.clientY - bounds.top;
+
+
+		if (this.paddle1) { this.paddle1.updatePos_mouse(y); }
+		socket.emit('MEVENT_S', y);
+		console.log('sent mouse event');
+	}
+
+	updatePaddle2Pos_network = (mPosP2: number) => {
+		// called with Mevent given over soecket
+		if (this.paddle2) { this.paddle2.updatePos_mouse(mPosP2) }
 	}
 
 	updateGame = (delta: number) => {
 		// use delta to create frame-independent transform
-		this.ball.updatePos(delta, [this.paddle1.yPos]); //, this.Paddle2.yPos]);
+		this.ball.updatePos(delta, [this.paddle1.yPos, this.paddle2.yPos]);
 		this.drawAll();
 		if (this.ball.cFlag) {
 			this.scores[this.ball.cFlag === 'P1L' ? 0 : 1]++;
-			//TODO: inherit win const
 			this.scores[this.ball.cFlag === 'P1L' ? 0 : 1] < winVal ? this.loadStage() : this.endGame();
 
 		}
@@ -407,8 +427,7 @@ class GameBase extends React.Component<GBProps, GBState>{
 	drawAll = () => {
 		this.ball.draw();
 		this.paddle1.draw();
-		//this.paddle2.draw();
-		//todo: draw paddles
+		this.paddle2.draw();
 	}
 
 	//Stop the Application when unmounting.
@@ -417,7 +436,8 @@ class GameBase extends React.Component<GBProps, GBState>{
 	}
 
 	handlePress = (E: KeyboardEvent) => {
-		console.log("handlepress called: " + E.toString())
+		//TODO: handle exits over socket
+		//console.log("handlepress called: " + E.toString())
 		switch (E.key) {
 
 			case "Escape":

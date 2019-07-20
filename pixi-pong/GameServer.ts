@@ -8,6 +8,7 @@
  * once a room has two clients it is no longer available
  */
 
+//TODO: unnecessary WebRTC
 
 import * as socketio from "socket.io";
 // Setup basic express server
@@ -30,7 +31,7 @@ export interface match {
 	name: string
 	//TODO: creatorId: string; for deleteing based on creator
 	//TODO: password: string; for private games
-	players: string[] // players[0] is always owner
+	playerNames: string[] // players[0] is always owner
 	isFull: boolean
 	firstTo: number
 }
@@ -50,33 +51,36 @@ function createMatch(socket: SocketIO.Socket, matchName: string, creatorName: st
 	//create match 
 	let m: match = {
 		name: matchName,
-		players: [],
+		playerNames: [],
 		isFull: false,
 		firstTo: firstTo
 	};
-	m.players.push(creatorName);
+	m.playerNames.push(creatorName);
 
 	allMatchDict[m.name] = m; //add it as a property to the object
 	openMatchDict[m.name] = m;
 
 	socket.join(m.name); // socket joins room
+	socket.broadcast.emit('OTHER_PLAYER_READY') //NOTE: not sure if this will be recieved once the other player joinse
 	//NOTE: client must then wait for others to join room and can no longer join a room without reloading
 
 	console.log('match successfully created');
 
 	//NOTE: not sure if this will fuck me over
 	//set 10 min timeout to destroy the match if it isnt full
+	//FIXME: make idle match deletion smarter
 	setTimeout(() => {
-		if(!allMatchDict[m.name]) return; // if its already deleted ignore
+		if (!allMatchDict[m.name]) return; // if its already deleted ignore
 		console.log('DELETEING IDLE MATCH');
 		if (!m.isFull) {
 			delete allMatchDict[m.name];
+			delete openMatchDict[m.name]; // we know its in openmatchdict bc its not full
 		}
 	}, 10 * 60 * 1000);
 }
 
 // checks if a match Exists; should be async?
-function matchExists(matchName: string) {
+function matchExists(matchName: string): boolean {
 	return allMatchDict.hasOwnProperty(matchName);
 }
 
@@ -89,26 +93,32 @@ io.on('connection', (socket: SocketIO.Socket) => {
 	//clientsocket.emit('CREATE_MATCH', 'match_name');
 	socket.on('GET_ALL_MATCHES', () => {
 		console.log('recieved GET_ALL_MATCHES request');
-		socket.emit('RECV_ALL_MATCHES', { ALL_MATCHES: allMatchDict });
+		socket.emit('RECV_ALL_MATCHES', allMatchDict);
 	}
 	);
 
 	socket.on('GET_OPEN_MATCHES', () => {
 		console.log('recieved GET_OPEN_MATCHES request');
-		socket.emit('RECV_OPEN_MATCHES', { OPEN_MATCHES: openMatchDict });
+		socket.emit('RECV_OPEN_MATCHES', openMatchDict);
+	}
+	);
+
+	socket.on('GET_MATCH_BY_NAME', (matchName:string) => {
+		console.log('recieved GET_MATCH_BY_NAME request for name:'+matchName);
+		socket.emit('RECV_MATCH_BY_NAME', allMatchDict[matchName]);
 	}
 	);
 
 	//CREATE_MATCH request would look like:
 	//clientsocket.emit('CREATE_MATCH', 'match_name', 'client_name').on('ERROR', doSomthing);
-	socket.on('CREATE_MATCH', ( matchName: string, creatorName: string, firstTo: number = 7) => {
+	socket.on('CREATE_MATCH', (matchName: string, creatorName: string, firstTo: number = 7) => {
 		console.log('recieved CREATE_MATCH request from creator: ' + creatorName);
-		createMatch(socket, matchName, creatorName, firstTo);
+		createMatch(socket, matchName, creatorName, firstTo ? firstTo : 7);
 	}
 	);
 
-	socket.on('JOIN_MATCH', ( matchName: string, joinerName: string) => {
-		console.log('recieved JOIN_MATCH request from: ' + joinerName + ' to match: ' + matchName);
+	socket.on('JOIN_MATCH', (matchName: string, joinerName: string) => {
+		console.log('recieved JOIN_MATCH request from: ' + joinerName + ', to match: ' + matchName);
 		if (!matchExists(matchName)) {
 			console.log('ERROR match does not exist');
 			socket.emit('ERROR', 'match does not exist');
@@ -121,11 +131,18 @@ io.on('connection', (socket: SocketIO.Socket) => {
 		}
 
 		delete openMatchDict[matchName]; // match is no longer open
-		allMatchDict[matchName].players.push(joinerName);
+		allMatchDict[matchName].playerNames.push(joinerName);
 		allMatchDict[matchName].isFull = true;
 		socket.join(matchName);
-		socket.broadcast.emit('ALL_PLAYERS_READY', true);
-		console.log(joinerName + ' has joined match '+ matchName);
+		socket.broadcast.emit('OTHER_PLAYER_READY', joinerName);
+		console.log(joinerName + ' has joined match ' + matchName);
+	}
+	);
+
+	socket.on('MEVENT_S', (mPos: number) => {
+		//console.log('recieved mouse position')
+		socket.broadcast.emit('MEVENT_C', mPos);
+		//console.log('broadcasted mouse position')
 	}
 	);
 
