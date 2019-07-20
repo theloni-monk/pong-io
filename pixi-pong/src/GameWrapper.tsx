@@ -1,34 +1,47 @@
 import React from 'react';
-import GameBase from './GameBase.tsx'
+import {match} from '../GameServer';
+import GameBase from './GameBase'
 import './css/Game.css';
 
-class GameWrapper extends React.Component{
-    //TODO: inheirit props from GameLoader
-    constructor(props){
+interface GWProps {
+    match: match;
+    isCreator: boolean;
+    socket: SocketIO.Socket;
+}
+interface GWState {
+    match: match;
+    timer: string;
+    started: boolean
+}
+class GameWrapper extends React.Component<GWProps, GWState>{
+    seconds: number;
+    playerNo: number;
+    interval: any;
+
+    constructor(props: any){
         super(props);
         this.seconds = 0;
         this.state = {
-            P1name: 'Theo',
-            P2name: 'Robot', 
-            BestOf: 7,
+            match: props.match,
             timer: "0:0.0",
             started: false
         }; //todo props inherit
         this.tick.bind(this);
+        this.playerNo = this.props.isCreator ? 0:1;
+        console.log("Socket: " + this.props.socket);
     }
 
-    
     render(){
         return (
             <div className = "GameContainer">
                 <div className = "GameHeader">
-                    <div className = "PnameO" id = "1">P1: {this.state.P1name}</div> 
-                    <div className = "FirstTo">First To {this.state.BestOf}</div>
-                    <div className = "PnameT" id = "2">P2: {this.state.P2name}</div>
+                    <div className = "PnameO" id = "1">P1: {this.state.match.playerNames[this.playerNo]}</div> 
+                    <div className = "FirstTo">First To {this.state.match.firstTo}</div>
+                    <div className = "PnameT" id = "2">P2: {this.state.match.playerNames[Math.abs(this.playerNo-1)]}</div>
                     <div className = "timer">{this.state.timer}</div>
                 </div>
             <div className = "GameFrameContainer"> 
-            <GameBase buttonfunc = {this.timer}/> 
+            <GameBase buttonfunc = {this.timer} socket = {this.props.socket} /> 
             </div>
             </div>
         );
