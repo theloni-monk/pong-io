@@ -1,10 +1,12 @@
 body {
-  margin: 0;
+  margin-bottom: 50px;
   padding: 0;
   font-family: sans-serif;
 }
 footer {
-  display: grid;
-  justify-content: center;
+  position: fixed;
+  height: 50px;
+  bottom: 0px;
+  left: calc(50% - 120px);
   font-family: teko;
 }
