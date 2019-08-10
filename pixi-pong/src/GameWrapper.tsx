@@ -41,7 +41,7 @@ class GameWrapper extends React.Component<GWProps, GWState>{
                     <div className = "timer">{this.state.timer}</div>
                 </div>
             <div className = "GameFrameContainer"> 
-            <GameBase buttonfunc = {this.timer} socket = {this.props.socket} /> 
+            <GameBase buttonfunc = {this.timer} socket = {this.props.socket} isCreator = {this.props.isCreator} /> 
             </div>
             </div>
         );
