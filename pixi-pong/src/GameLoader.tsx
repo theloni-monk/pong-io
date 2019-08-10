@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { match } from '../GameServer';
-import './css/GameLoader.css'; //WRITEME: css
+//import './css/GameLoader.css'; //WRITEME: css
 import GameWrapper from './GameWrapper';
 const io = require('socket.io-client');
 
@@ -34,6 +34,7 @@ function renderOpenMatches(matches: any, onclick: any): JSX.Element[] {
 
 interface GLProps { }
 interface GLState {
+    connected: boolean;
     name: string;
     nameSubmitted: boolean;
     openMatches: any;
@@ -53,6 +54,7 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
     constructor(props: any) {
         super(props);
         this.state = {
+            connected: false,
             name: '',
             nameSubmitted: false,
             openMatches: {},
@@ -67,6 +69,7 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
 
     componentDidMount() {
         this.socket = io('http://127.0.0.1:5000'); //TODO: connect to real webserver
+        this.socket.on('connect', () => this.setState({connected: this.socket.connected}))
         this.socket.on('ERROR', (msg: string) => {
             console.log('socket recived err msg: ' + msg);
             this.setState({ error: msg });
@@ -113,7 +116,14 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
     }
 
     render() {
-        if (!this.state.nameSubmitted) { //name submitter
+        if(!this.state.connected){
+            return (
+                <div className = "connecting-screen">
+                    waiting on connection to matchmaking server...
+                </div>
+            )
+        }
+        else if (!this.state.nameSubmitted) { //name submitter
             return (
                 <div className="name-screen">
                     Name:
@@ -126,7 +136,7 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
         else {
             if (this.state.matchCreated && !this.state.matchJoined) { // waiting for match
                 return (
-                    <div className="waiting">
+                    <div className="waiting-on-join-screen">
                         <strong>Waiting for players to join match...</strong>
                         once a player joins the game will automatically load
                     </div>
