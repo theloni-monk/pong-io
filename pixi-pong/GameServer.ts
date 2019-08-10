@@ -11,6 +11,7 @@
 //TODO: unnecessary WebRTC
 
 import * as socketio from "socket.io";
+import { bigIntLiteral } from "@babel/types";
 // Setup basic express server
 var express = require('express');
 var app = express();
@@ -87,6 +88,7 @@ function matchExists(matchName: string): boolean {
 io.on('connection', (socket: SocketIO.Socket) => {
 	console.log('connected to new client');
 	socket.emit('connected', true);
+	socket.setMaxListeners(12);
 
 
 	//GET_ALL_MATCHES request would look like:
@@ -139,12 +141,47 @@ io.on('connection', (socket: SocketIO.Socket) => {
 	}
 	);
 
-	socket.on('MEVENT_S', (mPos: number) => {
-		//console.log('recieved mouse position')
-		socket.broadcast.emit('MEVENT_C', mPos);
-		//console.log('broadcasted mouse position')
+	// MAYBE PUT ALL GAME EVENTS INTO A 'GEVENT' AND PASS THE EVENT TYPE EX) 'MEVENT' AS A GEVENT DATA 
+	// eventParams is an object 
+	function sleep(ms: number) {
+		return new Promise(resolve => setTimeout(resolve, ms));
+	}
+	socket.on('GEVENT', async (eventType: string, eventParams)=>{
+		switch(eventType){
+			case 'MEVENT_S':
+				socket.broadcast.emit('MEVENT_C', eventParams.mPos);
+				break;
+
+			// this will keep sending player ready until it is seen:
+			case 'PLAYER_READY':
+				var recieved = false;
+				socket.on('PR_RECIEVED',() => {recieved = true;})
+				while(!recieved){
+					console.log('sending player ready')
+					socket.broadcast.emit('PLAYER_READY');
+					await sleep(300);
+				}
+				break;
+
+			case 'INIT_BALL':
+				socket.broadcast.emit('INIT_BALL', eventParams);
+				break;
+
+			default:
+				console.log("recieved invalid GEVENT");
+				socket.emit('ERROR','INVALID_GEVENT_TRANSMISSION');
+		}
 	}
 	);
+
+	// socket.on('MEVENT_S', (mPos: number) => {
+	// 	//console.log('recieved mouse position')
+	// 	socket.broadcast.emit('MEVENT_C', mPos);
+	// 	//console.log('broadcasted mouse position')
+	// }
+	// );
+
+	//socket.on('PLAYER_READY')
 
 	//TODO: on socket disconnect destroy matches it created
 }

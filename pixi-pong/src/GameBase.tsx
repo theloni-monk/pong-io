@@ -1,7 +1,7 @@
 import * as React from 'react';
 import * as Pixi from 'pixi.js';
 
-const _DEBUG = true; //rn this stops the ball from moving
+const _DEBUG = false;//true; //rn this stops the ball from moving
 
 //constants:
 const winVal = 7;
@@ -12,6 +12,7 @@ const pOffset = 30;
 //TODO: add sounds on collisions and various events
 //TODO: load more pixelated font
 
+//TODO: fix bouncing math (higher hit, higher angle)
 //FIXME: sync pongball
 class pongball {
 	g: Pixi.Graphics
@@ -141,20 +142,25 @@ var socket: SocketIO.Socket;
 interface GBProps {
 	buttonfunc: any;
 	socket: SocketIO.Socket;
+	isCreator: boolean;
 }
 interface GBState { }
 class GameBase extends React.Component<GBProps, GBState>{
 	//protected socket: SocketIO.Socket
+	public isCreator: boolean
 	protected app: Pixi.Application
 	protected _updatefuncpointer: any
 	protected gameCanvas: HTMLDivElement
 	protected G: Pixi.Graphics
 	private beginButton: Pixi.Text
+	private p2ready: boolean
 	private P1score: Pixi.Text
 	private P2score: Pixi.Text
 	public scores: number[]
 	public gameOver: boolean
 	protected ball: pongball
+	public dir: number
+	public angle: number
 	public ballVel: number
 	protected paddle1: paddle
 	protected paddle2: paddle
@@ -162,6 +168,7 @@ class GameBase extends React.Component<GBProps, GBState>{
 	constructor(props: any) {
 		super(props);
 		socket = this.props.socket;
+		this.p2ready = false;
 		this.scores = [0, 0];
 		this.G = new Pixi.Graphics();
 		this.ballVel = 3.75; // we immediately add 0.25
@@ -184,12 +191,19 @@ class GameBase extends React.Component<GBProps, GBState>{
 		//this.app.ticker.stop();
 
 		this.initGame();
+
+		socket.on('INIT_BALL', (ballData: any) => {
+			this.dir = ballData.dir;
+			this.angle = ballData.angle;
+			socket.emit('GEVENT', 'PLAYER_READY', {});
+			console.log('recieved initial ball vals from creator')
+		});
 	}
 
-	//TODO: socket handshake and shit
-	initGame = () => {
+	initGame = async () => {
 		console.log("begingame called");
 		this.G.clear();
+		socket.on('PLAYER_READY', () => { this.p2ready = true; console.log('player2 ready') });
 
 		this.beginButton = new Pixi.Text('Click To Begin', {
 			fontFamily: 'Teko',
@@ -203,18 +217,64 @@ class GameBase extends React.Component<GBProps, GBState>{
 		this.beginButton.interactive = true;
 		this.app.stage.addChild(this.beginButton);
 
-		this.beginButton.on('pointerdown', () => {
+		// when user readies wait for p2 
+		this.beginButton.on('pointerdown', async () => {
 			console.log("beginButton triggered")
+			socket.emit('GEVENT', 'PLAYER_READY', {});
+			//GO INTO WAIT LOOP AND AWAIT THE PLAYER READY SOCKET EVENT
+			this.app.stage.removeChild(this.beginButton);
+			const waitText = new Pixi.Text("Waiting for player 2 ", {
+				fontFamily: 'Teko',
+				fontSize: 80,
+				fill: 'white',
+				align: 'center',
+			})
+			waitText.anchor.set(0.5)
+			//set to the side of the winner
+			waitText.position.set(Math.floor(windowbounds[0] / 2), Math.floor(windowbounds[1] / 2));
+			waitText.resolution = 2;
+			this.app.stage.addChild(waitText);
+
+			while (!this.p2ready) {
+				await sleep(50);
+			}
+			socket.emit('PR_RECIEVED');
+
+
+			// syncronizing the ball direction and velocity: NOTE: socket.on('INIT_BALL') is located in componentDidMount
+			this.p2ready = false;
+			if (this.props.isCreator) {
+				// create ball and set velocities in a rand direction:
+				this.dir = Math.floor(Math.random() * 2) ? 1 : -1
+				this.angle = Math.ceil(Math.random() * (Math.PI)); // send the ball at velocity ballVel in random angle
+				socket.emit('GEVENT', 'INIT_BALL', { dir: -this.dir, angle: this.angle }); //NOTE: dir must be reversed because both players are p1 on their screen and thus their directions are mirrored
+				socket.emit('GEVENT', 'PLAYER_READY', {});
+				console.log('sent init ball vals')
+			}
+			while (!this.p2ready) {
+				await sleep(50);
+			}
+			
+			socket.emit('PR_RECIEVED');
+			// create ball and set velocities in a rand direction:
+			this.ball = new pongball({
+				size: 20,
+				pos: [windowbounds[0] / 2, windowbounds[1] / 2],
+				Vx: this.ballVel * Math.cos(this.angle) * this.dir,
+				Vy: this.ballVel * Math.sin(this.angle) 
+			});
+			this.app.stage.addChild(this.ball.g);
+
 
 			this._updatefuncpointer = (delta: number) => { this.updateGame(delta) }; //create update timer
 			this.app.ticker.add(this._updatefuncpointer)
 			this.props.buttonfunc(); //start timer in DOM
-			this.app.stage.removeChild(this.beginButton);
+			this.app.stage.removeChild(waitText);
 
 			this.drawScene();
 			this.drawScore();
-			//this.button.destroy(); // destroy the button
 		})
+
 		this.paddle1 = new paddle({
 			xPos: pOffset
 		});
@@ -225,20 +285,10 @@ class GameBase extends React.Component<GBProps, GBState>{
 		this.app.stage.addChild(this.paddle1.g);
 		this.app.stage.addChild(this.paddle2.g);
 
-		// create ball and set velocities in a rand direction:
-		let dir = Math.floor(Math.random() * 2) ? 1 : -1
-		let angle = Math.ceil(Math.random() * (Math.PI)); // send the ball at velocity ballVel in random angle
-		this.ball = new pongball({
-			size: 20,
-			pos: [windowbounds[0] / 2, windowbounds[1] / 2],
-			Vx: this.ballVel * Math.cos(angle) * dir,
-			Vy: this.ballVel * Math.sin(angle) * dir
-		});
-
-		this.app.stage.addChild(this.ball.g);
+		
 	}
 
-	//THOUGHT: on loadstage exchange scores to see if sync error occured
+	//FIXME: on loadstage exchange scores to see if sync error occured
 	async loadStage() {
 		this.app.ticker.stop(); //stop updates
 		//console.log("loadStage called")
@@ -255,21 +305,34 @@ class GameBase extends React.Component<GBProps, GBState>{
 
 		this.props.buttonfunc(true, false); // pause timer in DOM
 		await sleep(300); // subltle pause lets users relax
-		this.props.buttonfunc(); // unpause timer in DOM
 
-		// create and set the ball in a rand direction:
-		let dir = Math.floor(Math.random() * 2) ? 1 : -1
-		let angle = Math.ceil(Math.random() * (Math.PI)); // send the ball at velocity ballVel in random angle
+
+		// syncronizing the ball direction and velocity / NOTE: socket.on('INIT_BALL') is located in componentDidMount
+		this.p2ready = false;
+		if (this.props.isCreator) {
+			// create ball and set velocities in a rand direction:
+			this.dir = Math.floor(Math.random() * 2) ? 1 : -1
+			this.angle = Math.ceil(Math.random() * (Math.PI)); // send the ball at velocity ballVel in random angle
+			socket.emit('GEVENT', 'INIT_BALL', { dir: -this.dir, angle: this.angle }); //NOTE: dir must be reversed because both players are p1 on their screen and thus their directions are mirrored
+			socket.emit('GEVENT', 'PLAYER_READY', {});
+			console.log('sent init ball vals')
+		}
+		while (!this.p2ready) {
+			await sleep(50);
+		}
+		socket.emit('PR_RECIEVED');
+
+		// create ball and set velocities in a rand direction:
 		this.ball = new pongball({
 			size: 20,
 			pos: [windowbounds[0] / 2, windowbounds[1] / 2],
-			Vx: this.ballVel * Math.cos(angle) * dir,
-			Vy: this.ballVel * Math.sin(angle) * dir
+			Vx: this.ballVel * Math.cos(this.angle) * this.dir,
+			Vy: this.ballVel * Math.sin(this.angle) 
 		});
-
 		this.app.stage.addChild(this.ball.g);
 
 		this.app.ticker.start()
+		this.props.buttonfunc(); // unpause timer in DOM
 	}
 
 	//sends endgame
@@ -334,11 +397,7 @@ class GameBase extends React.Component<GBProps, GBState>{
 				toY: Math.abs(toY)
 			};
 
-			for (
-				;
-				Math.abs(currentPosition.x) < absValues.toX ||
-				Math.abs(currentPosition.y) < absValues.toY;
-			) {
+			for (; Math.abs(currentPosition.x) < absValues.toX || Math.abs(currentPosition.y) < absValues.toY;) {
 				currentPosition.x =
 					Math.abs(currentPosition.x + dash) < absValues.toX
 						? currentPosition.x + dash
@@ -404,7 +463,7 @@ class GameBase extends React.Component<GBProps, GBState>{
 
 
 		if (this.paddle1) { this.paddle1.updatePos_mouse(y); }
-		socket.emit('MEVENT_S', y);
+		socket.emit('GEVENT', 'MEVENT_S', { mPos: y });
 		console.log('sent mouse event');
 	}
 
