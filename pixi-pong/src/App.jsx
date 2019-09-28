@@ -1,5 +1,5 @@
 import React from 'react';
-import GameLoader from './GameLoader.tsx';
+import GameLoader from './Client/GameLoader.tsx';
 import logo from './assets/ttr.svg';
 import './css/App.css';
 

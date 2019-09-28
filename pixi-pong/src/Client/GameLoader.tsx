@@ -9,7 +9,7 @@
 // button to join, button to create_new
 
 import React from 'react';
-import { match } from '../GameServer';
+import { match } from '../Server/MatchServer';
 //import './css/GameLoader.css'; //WRITEME: css
 import GameWrapper from './GameWrapper';
 const io = require('socket.io-client');

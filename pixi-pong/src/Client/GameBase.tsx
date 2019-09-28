@@ -249,7 +249,7 @@ class GameBase extends React.Component<GBProps, GBState>{
 				this.angle = Math.ceil(Math.random() * (Math.PI)); // send the ball at velocity ballVel in random angle
 				socket.emit('GEVENT', 'INIT_BALL', { dir: -this.dir, angle: this.angle }); //NOTE: dir must be reversed because both players are p1 on their screen and thus their directions are mirrored
 				socket.emit('GEVENT', 'PLAYER_READY', {});
-				console.log('sent init ball vals')
+				console.log('sent init ball vals');
 			}
 			while (!this.p2ready) {
 				await sleep(50);
@@ -267,7 +267,7 @@ class GameBase extends React.Component<GBProps, GBState>{
 
 
 			this._updatefuncpointer = (delta: number) => { this.updateGame(delta) }; //create update timer
-			this.app.ticker.add(this._updatefuncpointer)
+			this.app.ticker.add(this._updatefuncpointer);
 			this.props.buttonfunc(); //start timer in DOM
 			this.app.stage.removeChild(waitText);
 
@@ -331,7 +331,7 @@ class GameBase extends React.Component<GBProps, GBState>{
 		});
 		this.app.stage.addChild(this.ball.g);
 
-		this.app.ticker.start()
+		this.app.ticker.start();
 		this.props.buttonfunc(); // unpause timer in DOM
 	}
 
@@ -456,15 +456,15 @@ class GameBase extends React.Component<GBProps, GBState>{
 	updatePaddle1Pos_mouse = (mEvent1: any) => {
 
 		let bounds = mEvent1.target.getBoundingClientRect();
-		console.log("bounds.top: " + bounds.top)
+		//console.log("bounds.top: " + bounds.top)
 
-		console.log("abs mouse y pos:" + mEvent1.clientY);
+		//console.log("abs mouse y pos:" + mEvent1.clientY);
 		let y: number = mEvent1.clientY - bounds.top;
 
 
 		if (this.paddle1) { this.paddle1.updatePos_mouse(y); }
 		socket.emit('GEVENT', 'MEVENT_S', { mPos: y });
-		console.log('sent mouse event');
+		//console.log('sent mouse event');
 	}
 
 	updatePaddle2Pos_network = (mPosP2: number) => {
@@ -479,7 +479,6 @@ class GameBase extends React.Component<GBProps, GBState>{
 		if (this.ball.cFlag) {
 			this.scores[this.ball.cFlag === 'P1L' ? 0 : 1]++;
 			this.scores[this.ball.cFlag === 'P1L' ? 0 : 1] < winVal ? this.loadStage() : this.endGame();
-
 		}
 	}
 

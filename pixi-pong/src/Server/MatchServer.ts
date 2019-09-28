@@ -11,7 +11,6 @@
 //TODO: unnecessary WebRTC
 
 import * as socketio from "socket.io";
-import { bigIntLiteral } from "@babel/types";
 // Setup basic express server
 var express = require('express');
 var app = express();
@@ -27,6 +26,10 @@ server.listen(port, () => {
 // Routing
 app.use(express.static(path.join(__dirname, 'public')));
 console.log(path.join(__dirname, 'public'));
+
+function sleep(ms: number) {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 export interface match {
 	name: string
@@ -90,7 +93,7 @@ io.on('connection', (socket: SocketIO.Socket) => {
 	socket.emit('connected', true);
 	socket.setMaxListeners(12);
 
-
+	//TODO: have names be inheirant
 	//GET_ALL_MATCHES request would look like:
 	//clientsocket.emit('CREATE_MATCH', 'match_name');
 	socket.on('GET_ALL_MATCHES', () => {
@@ -143,9 +146,8 @@ io.on('connection', (socket: SocketIO.Socket) => {
 
 	// MAYBE PUT ALL GAME EVENTS INTO A 'GEVENT' AND PASS THE EVENT TYPE EX) 'MEVENT' AS A GEVENT DATA 
 	// eventParams is an object 
-	function sleep(ms: number) {
-		return new Promise(resolve => setTimeout(resolve, ms));
-	}
+
+	
 	socket.on('GEVENT', async (eventType: string, eventParams)=>{
 		switch(eventType){
 			case 'MEVENT_S':
@@ -157,10 +159,11 @@ io.on('connection', (socket: SocketIO.Socket) => {
 				var recieved = false;
 				socket.on('PR_RECIEVED',() => {recieved = true;})
 				while(!recieved){
-					console.log('sending player ready')
+					//console.log('sending player ready')
 					socket.broadcast.emit('PLAYER_READY');
-					await sleep(300);
+					await sleep(500);
 				}
+				console.log("Player has readied")
 				break;
 
 			case 'INIT_BALL':
@@ -174,14 +177,6 @@ io.on('connection', (socket: SocketIO.Socket) => {
 	}
 	);
 
-	// socket.on('MEVENT_S', (mPos: number) => {
-	// 	//console.log('recieved mouse position')
-	// 	socket.broadcast.emit('MEVENT_C', mPos);
-	// 	//console.log('broadcasted mouse position')
-	// }
-	// );
-
-	//socket.on('PLAYER_READY')
 
 	//TODO: on socket disconnect destroy matches it created
 }

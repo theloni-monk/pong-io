@@ -1,6 +1,6 @@
 import React from 'react';
-import {match} from './Server/MatchServer';
-import GameBase from './Client/GameBase'
+import {match} from '../Server/MatchServer';
+import GameBase from './GameBase'
 import './css/Game.css';
 
 interface GWProps {
