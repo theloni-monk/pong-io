@@ -1,7 +1,7 @@
 import React from 'react';
 import {match} from '../Server/MatchServer';
 import GameBase from './GameBase'
-import '../css/Game.css';
+import '../css/GameWrapper.css';
 
 interface GWProps {
     match: match;
