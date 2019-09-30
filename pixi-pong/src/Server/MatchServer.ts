@@ -163,7 +163,7 @@ io.on('connection', (socket: SocketIO.Socket) => {
 					socket.broadcast.emit('PLAYER_READY');
 					await sleep(500);
 				}
-				console.log("Player has readied")
+				socket.removeListener('PR_RECIEVED',() => {recieved = true;});
 				break;
 
 			case 'INIT_BALL':
