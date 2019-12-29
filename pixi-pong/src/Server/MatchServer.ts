@@ -7,9 +7,7 @@
  * clients can then emit volitile MouseEvents to the match/room to communicate with the peer
  * once a room has two clients it is no longer available
  */
-
-//TODO: unnecessary WebRTC
-
+const { fork } = require('child_process');
 import * as socketio from "socket.io";
 // Setup basic express server
 var express = require('express');
@@ -17,7 +15,7 @@ var app = express();
 var path = require('path');
 var server = require('http').createServer(app);
 var io = require('socket.io')(server);
-var port = process.env.PORT || 5000;
+var port = 5000;
 
 server.listen(port, () => {
 	console.log('Server listening at port %d', port);
@@ -36,8 +34,10 @@ export interface match {
 	//TODO: creatorId: string; for deleteing based on creator
 	//TODO: password: string; for private games
 	playerNames: string[] // players[0] is always owner
+	//FIXME: add mac addresses to match
 	isFull: boolean
 	firstTo: number
+	process: any // pointer to forked process on live server (allows match server to check if process has been killed)
 }
 
 //matchDict is an object(dictionary) with matchnames being properties(keys) 
@@ -57,7 +57,8 @@ function createMatch(socket: SocketIO.Socket, matchName: string, creatorName: st
 		name: matchName,
 		playerNames: [],
 		isFull: false,
-		firstTo: firstTo
+		firstTo: firstTo,
+		process: null
 	};
 	m.playerNames.push(creatorName);
 
@@ -65,14 +66,14 @@ function createMatch(socket: SocketIO.Socket, matchName: string, creatorName: st
 	openMatchDict[m.name] = m;
 
 	socket.join(m.name); // socket joins room
-	socket.broadcast.emit('OTHER_PLAYER_READY') //NOTE: not sure if this will be recieved once the other player joinse
+	//socket.broadcast.emit('OTHER_PLAYER_READY') //NOTE: not sure if this will be recieved once the other player joinse
 	//NOTE: client must then wait for others to join room and can no longer join a room without reloading
 
 	console.log('match successfully created');
 
 	//NOTE: not sure if this will fuck me over
 	//set 10 min timeout to destroy the match if it isnt full
-	//FIXME: make idle match deletion smarter
+	//FIXME: make idle match deletion smarter 
 	setTimeout(() => {
 		if (!allMatchDict[m.name]) return; // if its already deleted ignore
 		console.log('DELETEING IDLE MATCH');
@@ -90,6 +91,7 @@ function matchExists(matchName: string): boolean {
 
 io.on('connection', (socket: SocketIO.Socket) => {
 	console.log('connected to new client');
+	console.log(socket.conn.remoteAddress)
 	socket.emit('connected', true);
 	socket.setMaxListeners(12);
 
@@ -141,43 +143,20 @@ io.on('connection', (socket: SocketIO.Socket) => {
 		socket.join(matchName);
 		socket.broadcast.emit('OTHER_PLAYER_READY', joinerName);
 		console.log(joinerName + ' has joined match ' + matchName);
+
+		// fork live server:
+		let LiveServer = path.resolve('./LiveServer.ts');
+		let parameters:any[] = [allMatchDict[matchName].playerNames[0], allMatchDict[matchName].playerNames[1]]; //pass creatorsock ipv6 and joinersock ipv6
+		let options = {
+		stdio: [ 'pipe', 'pipe', 'pipe', 'ipc' ]
+		};
+		allMatchDict[matchName].process = fork(LiveServer, parameters, options);
+		console.log('LiveServer forked from MatchServer');
+		allMatchDict[matchName].process.on('message', (msg:string) => {
+			console.log('Message from LiveServer instace:', msg);
+		});
 	}
 	);
-
-	// MAYBE PUT ALL GAME EVENTS INTO A 'GEVENT' AND PASS THE EVENT TYPE EX) 'MEVENT' AS A GEVENT DATA 
-	// eventParams is an object 
-
-	
-	socket.on('GEVENT', async (eventType: string, eventParams)=>{
-		switch(eventType){
-			case 'MEVENT_S':
-				socket.broadcast.emit('MEVENT_C', eventParams.mPos);
-				break;
-
-			// this will keep sending player ready until it is seen:
-			case 'PLAYER_READY':
-				var recieved = false;
-				socket.on('PR_RECIEVED',() => {recieved = true;})
-				while(!recieved){
-					//console.log('sending player ready')
-					socket.broadcast.emit('PLAYER_READY');
-					await sleep(500);
-				}
-				socket.removeListener('PR_RECIEVED',() => {recieved = true;});
-				break;
-
-			case 'INIT_BALL':
-				socket.broadcast.emit('INIT_BALL', eventParams);
-				break;
-
-			default:
-				console.log("recieved invalid GEVENT");
-				socket.emit('ERROR','INVALID_GEVENT_TRANSMISSION');
-		}
-	}
-	);
-
-
 	//TODO: on socket disconnect destroy matches it created
 }
 );
