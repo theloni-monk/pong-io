@@ -14,11 +14,17 @@ import { match } from '../Server/MatchServer';
 import GameWrapper from './GameWrapper';
 const io = require('socket.io-client');
 
+function sleep(ms:number){
+    return new Promise(resolve=>{
+        setTimeout(resolve,ms)
+    })
+}
+
 function renderOpenMatches(matches: any, onclick: any): JSX.Element[] {
     let matchDivs: JSX.Element[] = []
     //console.log(matches);
     Object.keys(matches).forEach((key, index) => {
-        console.log("key: "+ key);
+        console.log("key: " + key);
         if (!matches[key].isFull) {
             matchDivs.push(
                 <div className="open-match" onClick={() => { onclick(matches[key].name) }}>
@@ -43,13 +49,15 @@ interface GLState {
     matchJoined: boolean;
     matchCreated: boolean;
     matchRecieved: boolean;
+    gameReady: boolean;
 }
 
 export default class GameLoader extends React.Component<GLProps, GLState>{
 
-    protected socket: SocketIO.Socket;
+    protected matchSock: SocketIO.Socket
+    protected gameSock: SocketIO.Socket
 
-    protected match: match;
+    protected match: match
 
     constructor(props: any) {
         super(props);
@@ -62,21 +70,29 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
             error: '',
             matchCreated: false,
             matchJoined: false,
-            matchRecieved: false
+            matchRecieved: false,
+            gameReady: false
         }
-
     }
-
+    
     componentDidMount() {
-        this.socket = io('http://127.0.0.1:5000'); //TODO: connect to real webserver
-        this.socket.on('connect', () => this.setState({connected: this.socket.connected}))
-        this.socket.on('ERROR', (msg: string) => {
+        this.matchSock = io('http://127.0.0.1:5000'); //FIXME: connect to real webserver on rPi
+        this.matchSock.on('connect', () => this.setState({ connected: this.matchSock.connected }))
+        this.matchSock.on('ERROR', (msg: string) => {
             console.log('socket recived err msg: ' + msg);
             this.setState({ error: msg });
             msg === 'match does not exist' ? this.setState({ matchJoined: false }) : this.setState({ matchCreated: false });
         });
-        this.socket.on('RECV_OPEN_MATCHES', (oMatches: any) => { this.setState({ openMatches: oMatches }) });
-        this.socket.on('RECV_MATCH_BY_NAME', (match: match) => { this.match = match; this.setState({matchRecieved:true}) });
+        this.matchSock.on('RECV_OPEN_MATCHES', (oMatches: any) => { this.setState({ openMatches: oMatches }) });
+        this.matchSock.on('RECV_MATCH_BY_NAME', (match: match) => { //trigger to render match
+            this.match = match;
+            //(async () => {await sleep(15000)})(); // wait 15 seconds for LiveServer instance to spawn
+            this.gameSock = io('http://127.0.0.1:5050'//,
+                { transportOptions: { polling: { extraHeaders: { 'clientid': this.state.name } } } } //CORS DOESN'T ALLOW PREFLIGHT OF HEADERS NOT PREVIOUSLY DEFINED, BUT I CANT DEFINE MY HEADERS WITHOUT STATING  THE NAME, WHICH WOULD DEFEAT THE FUCKING POINT, 
+                //i FUCKING HATE THIS PROJECT, KILL ME NOW PLEASE, i WISH FOR DEATH 
+            );
+            this.gameSock.on('connection', () => { this.setState({ matchRecieved: true }) });
+        });
     }
 
     updateNameInput = (evt: any) => {
@@ -91,40 +107,41 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
     }
 
     refreshOpenMatches = () => {
-        this.socket.emit('GET_OPEN_MATCHES');
+        this.matchSock.emit('GET_OPEN_MATCHES');
     }
 
     joinMatch = () => {
-        this.socket.emit('JOIN_MATCH', this.state.matchNameInput, this.state.name)
+        this.matchSock.emit('JOIN_MATCH', this.state.matchNameInput, this.state.name)
         this.setState({ matchJoined: true });
-        this.socket.emit('GET_MATCH_BY_NAME', this.state.matchNameInput);
+        this.matchSock.emit('GET_MATCH_BY_NAME', this.state.matchNameInput);
     }
 
     createMatch = () => {
-        this.socket.emit('CREATE_MATCH',
+        this.matchSock.emit('CREATE_MATCH',
             this.state.matchNameInput.split(':')[0],
             this.state.name,
             parseInt(this.state.matchNameInput.split(':')[1]) //firstTo value given by colon in name
         );
         this.setState({ matchCreated: true });
-        this.socket.on('OTHER_PLAYER_READY', () => {
+        this.matchSock.on('OTHER_PLAYER_READY', () => {
             this.setState({ matchJoined: true });
             //this.socket.broadcast.emit('OTHER_PLAYER_READY')
-            this.socket.emit('GET_MATCH_BY_NAME', this.state.matchNameInput);
+            this.matchSock.emit('GET_MATCH_BY_NAME', this.state.matchNameInput);
         }
         );
     }
 
+
     render() {
-        if(!this.state.connected){
+        if (!this.state.connected) { //waiting on connection to MatchServer screen
             return (
-                <div className = "connecting-screen">
+                <div className="connecting-screen">
                     waiting on connection to matchmaking server...
                 </div>
             )
         }
-        else if (!this.state.nameSubmitted) { //name submitter
-            return (
+        else if (!this.state.nameSubmitted) { //name submitter screen 
+            return ( //FIXME: ensure unique names via server
                 <div className="name-screen">
                     Name:
                 <input className="name-input" value={this.state.name} onChange={this.updateNameInput} />
@@ -133,8 +150,8 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
                 </div>
             );
         }
-        else {
-            if (this.state.matchCreated && !this.state.matchJoined) { // waiting for match
+        else { // came choosing screens: joining or creating a game
+            if (this.state.matchCreated && !this.state.matchJoined) { // waiting for match screen
                 return (
                     <div className="waiting-on-join-screen">
                         <strong>Waiting for players to join match...</strong>
@@ -142,12 +159,12 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
                     </div>
                 );
             }
-                                                //make sure we got the match by name
-            else if (this.state.matchJoined && this.state.matchRecieved) { // matchmaking done: loading game
-                console.log("matchmaking complete, rendering game");
-                return (<GameWrapper match = {this.match} isCreator = {this.state.matchCreated} socket = {this.socket}/>);
+            else if (this.state.matchJoined && this.state.matchRecieved) { // matchmaking done: loading game screen
+                console.log("matchmaking complete, connecting to liveserver and rendering game ...");
+                //TODO: connect to liveserver
+                return (<GameWrapper match={this.match} isCreator={this.state.matchCreated} socket={this.gameSock} />);
             }
-            else if (!this.state.matchCreated && !this.state.matchJoined && !this.state.matchRecieved){ // Match Joiner/Creator
+            else if (!this.state.matchCreated && !this.state.matchJoined && !this.state.matchRecieved) { // Match Joiner/Creator screen
                 return (
                     <div className="game-loader-container">
                         <button onClick={this.refreshOpenMatches}> refresh matches</button>
@@ -162,10 +179,10 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
                     </div>
                 );
             }
-            //TODO: fancy loading animation
-            else{
+            else { //loading screen //TODO: fancy loading animation
                 return ("LOADING...");
             }
         }
+        //FIXME: go back to main screen on Error
     }
 }
