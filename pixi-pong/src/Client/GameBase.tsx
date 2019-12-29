@@ -2,7 +2,7 @@ import * as React from 'react';
 import * as Pixi from 'pixi.js';
 
 const _DEBUG = false;//true; //rn this stops the ball from moving
-
+ 
 //constants:
 const winVal = 7;
 const windowbounds: number[] = [700, 500];
@@ -14,6 +14,8 @@ const pOffset = 30;
 
 //TODO: fix bouncing math (higher hit, higher angle)
 //FIXME: sync pongball
+//NOTE: pongball and paddle in this file exist only for predictive rendering, 
+// the objects that actually interact and matter exist on the server
 class pongball {
 	g: Pixi.Graphics
 	pos: number[]
@@ -35,6 +37,7 @@ class pongball {
 		this.fBounceInvin = 0;
 	}
 
+	//TODO: fix collision prediction
 	//handles bouncing and collision detection, sets collision flag on player loss
 	updatePos = (delta: number, PaddleYPos_both: number[]) => {
 		//console.log("pongball updated")
@@ -140,7 +143,7 @@ function sleep(ms: number) {
 var socket: SocketIO.Socket;
 
 interface GBProps {
-	buttonfunc: any;
+	domTimer: any;
 	socket: SocketIO.Socket;
 	isCreator: boolean;
 }
@@ -268,7 +271,7 @@ class GameBase extends React.Component<GBProps, GBState>{
 
 			this._updatefuncpointer = (delta: number) => { this.updateGame(delta) }; //create update timer
 			this.app.ticker.add(this._updatefuncpointer);
-			this.props.buttonfunc(); //start timer in DOM
+			this.props.domTimer(); //start timer in DOM
 			this.app.stage.removeChild(waitText);
 
 			this.drawScene();
@@ -281,7 +284,7 @@ class GameBase extends React.Component<GBProps, GBState>{
 		this.paddle2 = new paddle({
 			xPos: windowbounds[0] - pOffset
 		});
-		socket.on('MEVENT_C', (mPosP2: number) => { this.updatePaddle2Pos_network(mPosP2) })
+		socket.on('MEVENT', (mPosP2: number) => { this.updatePaddle2Pos_network(mPosP2) })
 		this.app.stage.addChild(this.paddle1.g);
 		this.app.stage.addChild(this.paddle2.g);
 
@@ -303,8 +306,8 @@ class GameBase extends React.Component<GBProps, GBState>{
 		this.drawScene();
 		this.drawScore();
 
-		this.props.buttonfunc(true, false); // pause timer in DOM
-		await sleep(300); // subltle pause lets users relax
+		this.props.domTimer(true, false); // pause timer in DOM
+		await sleep(300); // subltle pause lets users breath
 
 
 		// syncronizing the ball direction and velocity / NOTE: socket.on('INIT_BALL') is located in componentDidMount
@@ -332,17 +335,17 @@ class GameBase extends React.Component<GBProps, GBState>{
 		this.app.stage.addChild(this.ball.g);
 
 		this.app.ticker.start();
-		this.props.buttonfunc(); // unpause timer in DOM
+		this.props.domTimer(); // unpause timer in DOM
 	}
 
-	//sends endgame
+	//draws win or tie based on scores, stops app loop
 	endGame = () => {
 		this.gameOver = true;
 
 		this.app.ticker.remove(this._updatefuncpointer)
 
 		this.drawScore();
-		this.props.buttonfunc(true, false)
+		this.props.domTimer(true, false)
 		if (this.scores[0] === this.scores[1]) { //tie game
 			console.log("game end on TIE")
 			const tieText1 = new Pixi.Text("TIE", {
@@ -463,7 +466,7 @@ class GameBase extends React.Component<GBProps, GBState>{
 
 
 		if (this.paddle1) { this.paddle1.updatePos_mouse(y); }
-		socket.emit('GEVENT', 'MEVENT_S', { mPos: y });
+		socket.emit('GEVENT', 'MEVENT', { mPos: y });
 		//console.log('sent mouse event');
 	}
 
