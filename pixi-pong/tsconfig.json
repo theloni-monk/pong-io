@@ -15,13 +15,21 @@
     "module": "esnext",
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "isolatedModules": false, //true
-    "noEmit": true,
+    "isolatedModules": true,
+    //"noEmit": true,
     "jsx": "preserve",
     "strictPropertyInitialization": false,
-    "strictNullChecks":false
+    "strictNullChecks": false,
+    "outDir": "target"
+
   },
   "include": [
-    "src", "src/Server/MatchServer.ts", "src/Server/LiveServer.ts"
+    "src",
+    "src/Server/MatchServer.ts",
+    "src/Server/LiveServer.ts"
+  ],
+  "exclude": [
+    "target"
   ]
+
 }
