@@ -23,13 +23,13 @@ sock.on('connect', () => {
     console.log('connected to server');
 
     sock.emit('CREATE_MATCH', 'test-match', 'tester123');
-    console.log('sent create_match');
+    console.log('tester123 sent create_match');
 
     sock.emit('CREATE_MATCH', 'test-match', 'tester123');
-    console.log('sent create_match again');
+    console.log('tester 123 sent create_match again');
 
     sock.emit('GET_ALL_MATCHES');
-    console.log('sent get_all_matches');
+    console.log('tester123 sent get_all_matches');
 
     //while(!s2connected){   
         //wait
