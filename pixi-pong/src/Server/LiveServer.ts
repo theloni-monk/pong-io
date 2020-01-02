@@ -1,4 +1,5 @@
 import * as socketio from "socket.io";
+//FIXME: listeing breaks on multiple concurrent processes
 var p1Sock: socketio.Socket; //P1 is creator
 var p2Sock: socketio.Socket;
 process.send(process.argv.toString());
@@ -11,22 +12,35 @@ process.on('uncaughtException', (err: any) => {
 ///////SETUP SERVER AND CONNECT TO CLIENTS\\\\\\\\
 // Setup basic express server
 var express = require('express');
+var cors = require('cors')
 var app = express();
 var path = require('path');
 var server = require('http').createServer(app);
-var io = require('socket.io')(server);
+var io = require('socket.io')(server, {
+    handlePreflightRequest: (req:any, res:any) => { //dealing with fucking CORS bullshit
+        //process.send('req headers:' + req.headers);
+        const headers = {
+            "Access-Control-Allow-Headers": "clientid", // allow my authorization header
+            "Access-Control-Allow-Origin": req.headers['origin'], // allow access from any origin
+            "Access-Control-Allow-Credentials": true
+        };
+        res.writeHead(200, headers);
+        res.end();
+    }
+});
 var port = 5050; //game port 5050, match port 5000
 
 
 // Routing
 app.use(express.static(path.join(__dirname, 'public')));
-//process.send(path.join(__dirname, 'public'));
+
 
 io.use((socket: any, next: any) => {
+    //process.send('clientid middleware in use');
     let clientid = socket.handshake.headers['clientid'];
     if (clientid === p1Sock_name || clientid === p2Sock_name) { return next(); }
     //else:
-    process.send('rejected bad clientid')
+    process.send('rejected bad clientid');
     return next(new Error('authentication error'));
 });
 

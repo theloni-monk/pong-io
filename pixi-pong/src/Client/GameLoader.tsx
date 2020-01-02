@@ -76,7 +76,7 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
     }
     
     componentDidMount() {
-        this.matchSock = io('http://127.0.0.1:5000'); //FIXME: connect to real webserver on rPi
+        this.matchSock = io('http://127.0.0.1:5000'); //TODO: connect to real webserver on rPi
         this.matchSock.on('connect', () => this.setState({ connected: this.matchSock.connected }))
         this.matchSock.on('ERROR', (msg: string) => {
             console.log('socket recived err msg: ' + msg);
@@ -84,14 +84,15 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
             msg === 'match does not exist' ? this.setState({ matchJoined: false }) : this.setState({ matchCreated: false });
         });
         this.matchSock.on('RECV_OPEN_MATCHES', (oMatches: any) => { this.setState({ openMatches: oMatches }) });
-        this.matchSock.on('RECV_MATCH_BY_NAME', (match: match) => { //trigger to render match
+        this.matchSock.on('RECV_MATCH_BY_NAME', (match: match) => { //trigger to render match //TODO: fix needed later - can break if user tries to join invalid
             this.match = match;
-            //(async () => {await sleep(15000)})(); // wait 15 seconds for LiveServer instance to spawn
-            this.gameSock = io('http://127.0.0.1:5050'//,
-                { transportOptions: { polling: { extraHeaders: { 'clientid': this.state.name } } } } //CORS DOESN'T ALLOW PREFLIGHT OF HEADERS NOT PREVIOUSLY DEFINED, BUT I CANT DEFINE MY HEADERS WITHOUT STATING  THE NAME, WHICH WOULD DEFEAT THE FUCKING POINT, 
-                //i FUCKING HATE THIS PROJECT, KILL ME NOW PLEASE, i WISH FOR DEATH 
+            
+            this.gameSock = io('http://127.0.0.1:5050',
+                { transportOptions: { polling: { extraHeaders: { 'clientid': this.state.name } } } } 
             );
-            this.gameSock.on('connection', () => { this.setState({ matchRecieved: true }) });
+            console.log('connecting to LiveServer');
+            //FIXME: LiveServer is recieving connection but gameSock.onConnection isn't being called
+            this.gameSock.on('connection', () => { this.setState({ matchRecieved: true }); console.log('connected to LiveServer'); });
         });
     }
 
