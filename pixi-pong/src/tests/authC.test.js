@@ -3,7 +3,7 @@ var sock = io('http://127.0.0.1:5050',{
     transportOptions: {
       polling: {
         extraHeaders: {
-          'clientid': 't'
+          'clientid': 'f'
         }
       }
     }});
