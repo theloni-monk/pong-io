@@ -92,7 +92,11 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
             );
             console.log('connecting to LiveServer');
             //FIXME: LiveServer is recieving connection but gameSock.onConnection isn't being called
-            this.gameSock.on('connection', () => { this.setState({ matchRecieved: true }); console.log('connected to LiveServer'); });
+            this.gameSock.on('creation', () => { 
+                this.setState({ matchRecieved: true,
+                                gameReady: true }); 
+                console.log('connected to LiveServer'); 
+            });
         });
     }
 
@@ -124,6 +128,7 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
             parseInt(this.state.matchNameInput.split(':')[1]) //firstTo value given by colon in name
         );
         this.setState({ matchCreated: true });
+        console.log('Created match')
         this.matchSock.on('OTHER_PLAYER_READY', () => {
             this.setState({ matchJoined: true });
             //this.socket.broadcast.emit('OTHER_PLAYER_READY')
@@ -142,7 +147,7 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
             )
         }
         else if (!this.state.nameSubmitted) { //name submitter screen 
-            return ( //FIXME: ensure unique names via server
+            return ( 
                 <div className="name-screen">
                     Name:
                 <input className="name-input" value={this.state.name} onChange={this.updateNameInput} />
@@ -163,7 +168,12 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
             else if (this.state.matchJoined && this.state.matchRecieved) { // matchmaking done: loading game screen
                 console.log("matchmaking complete, connecting to liveserver and rendering game ...");
                 //TODO: connect to liveserver
-                return (<GameWrapper match={this.match} isCreator={this.state.matchCreated} socket={this.gameSock} />);
+                if(this.state.gameReady){
+                    return (<GameWrapper match={this.match} isCreator={this.state.matchCreated} socket={this.gameSock} />);
+                }
+                else{
+                    return (<div>Matchmaking complete, connecting to liveserver and rendering game ...</div>)
+                }
             }
             else if (!this.state.matchCreated && !this.state.matchJoined && !this.state.matchRecieved) { // Match Joiner/Creator screen
                 return (
