@@ -36,8 +36,9 @@ msock2.on('RECV_MATCH_BY_NAME', () => {
             }
           }
         }});
-    
-    gsock.on('connection', () => {
+        console.log('gsock connecting')
+
+    gsock.on('creation', () => {
         console.log('game client connected')
     })
     
@@ -49,8 +50,9 @@ msock2.on('RECV_MATCH_BY_NAME', () => {
             }
           }
         }});
+      console.log('gsock2 connecting')
     
-    gsock2.on('connection', () => {
+    gsock2.on('creation', () => {
         console.log('game client 2 connected')
     })
 });

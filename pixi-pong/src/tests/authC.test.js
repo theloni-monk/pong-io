@@ -3,12 +3,12 @@ var sock = io('http://127.0.0.1:5050',{
     transportOptions: {
       polling: {
         extraHeaders: {
-          'clientid': 'f'
+          'clientid': 'tt'
         }
       }
     }});
 
-sock.on('connection', () => {
+sock.on('creation', () => {
     console.log('client connected')
 })
 
