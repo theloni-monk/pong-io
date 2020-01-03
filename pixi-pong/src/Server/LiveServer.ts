@@ -12,7 +12,6 @@ process.on('uncaughtException', (err: any) => {
 ///////SETUP SERVER AND CONNECT TO CLIENTS\\\\\\\\
 // Setup basic express server
 var express = require('express');
-var cors = require('cors')
 var app = express();
 var path = require('path');
 var server = require('http').createServer(app);
@@ -53,10 +52,13 @@ io.on('connection', (socket: socketio.Socket) => {
     process.send('LiveServer recieved connection, clientid: ' + clientid)
     if (clientid === p1Sock_name) {
         p1Sock = socket;
+        p1Sock.emit('creation');
+        
         p1Sock.on('GEVENT', (eventType: string, eventParams: any) => { handleGEVENT(p1Sock, eventType, eventParams); });
     }
     else if (clientid === p2Sock_name) {
         p2Sock = socket;
+        p2Sock.emit('creation')
         p2Sock.on('GEVENT', (eventType: string, eventParams: any) => { handleGEVENT(p2Sock, eventType, eventParams); });
     }
 })
