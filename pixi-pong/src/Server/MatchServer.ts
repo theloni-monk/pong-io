@@ -8,7 +8,6 @@
  * once a room has two clients it is no longer available
  */
 const { fork } = require('child_process');
-import * as socketio from "socket.io";
 // Setup basic express server
 var express = require('express');
 var app = express();
@@ -34,15 +33,16 @@ export interface match {
 	//TODO: creatorId: string; for deleteing based on creator
 	//TODO: password: string; for private games
 	playerNames: string[] // players[0] is always owner
-	//FIXME: add mac addresses to match
 	isFull: boolean
 	firstTo: number
+	port: number
 	process: any // pointer to forked process on live server (allows match server to check if process has been killed)
 }
 
 //matchDict is an object(dictionary) with matchnames being properties(keys) 
 var allMatchDict: any = {} // array of rooms
 var openMatchDict: any = {} // same
+var prevport: number = 5000;
 
 function createMatch(socket: SocketIO.Socket, matchName: string, creatorName: string, firstTo: number = 7): void {
 	console.log('creating match: ' + matchName);
@@ -51,15 +51,16 @@ function createMatch(socket: SocketIO.Socket, matchName: string, creatorName: st
 		socket.emit('ERROR', 'match already exists')
 		return;
 	}
-
 	//create match 
 	let m: match = {
 		name: matchName,
 		playerNames: [],
 		isFull: false,
 		firstTo: firstTo,
+		port: prevport + 1 ,
 		process: null
 	};
+	prevport++;
 	m.playerNames.push(creatorName);
 
 	allMatchDict[m.name] = m; //add it as a property to the object
@@ -95,7 +96,6 @@ io.on('connection', (socket: SocketIO.Socket) => {
 	socket.emit('connected', true);
 	socket.setMaxListeners(12);
 
-	//TODO: have names be inheirant
 	//GET_ALL_MATCHES request would look like:
 	//clientsocket.emit('CREATE_MATCH', 'match_name');
 	socket.on('GET_ALL_MATCHES', () => {
@@ -141,19 +141,20 @@ io.on('connection', (socket: SocketIO.Socket) => {
 		allMatchDict[matchName].playerNames.push(joinerName);
 		allMatchDict[matchName].isFull = true;
 		socket.join(matchName);
-		socket.broadcast.emit('OTHER_PLAYER_READY', joinerName);
+		socket.emit('JOIN_COMPLETE');
+		socket.to(matchName).emit('OTHER_PLAYER_READY', joinerName);
 		console.log(joinerName + ' has joined match ' + matchName);
 
 		// fork live server:
 		let LiveServer = path.resolve('./LiveServer.ts');
-		let parameters:any[] = [allMatchDict[matchName].playerNames[0], allMatchDict[matchName].playerNames[1]]; //pass creatorsock ipv6 and joinersock ipv6
+		let parameters:any[] = [allMatchDict[matchName].playerNames[0], allMatchDict[matchName].playerNames[1], allMatchDict[matchName].firstTo.toString(), allMatchDict[matchName].port]; //pass creatorsock ipv6 and joinersock ipv6
 		let options = {
 		stdio: [ 'pipe', 'pipe', 'pipe', 'ipc' ]
 		};
 		allMatchDict[matchName].process = fork(LiveServer, parameters, options);
 		console.log('LiveServer forked from MatchServer');
 		allMatchDict[matchName].process.on('message', (msg:string) => {
-			console.log('Message from LiveServer instace:', msg);
+			console.log('LiveServer instace [' + matchName + '] message: ' + msg);
 		});
 	}
 	);
