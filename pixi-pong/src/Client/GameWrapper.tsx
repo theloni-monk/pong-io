@@ -27,7 +27,6 @@ class GameWrapper extends React.Component<GWProps, GWState>{
             started: false
         }; //todo props inherit
         this.tick.bind(this);
-        this.playerNo = this.props.isCreator ? 0:1;
         console.log("Socket: " + this.props.socket);
     }
 
@@ -35,9 +34,9 @@ class GameWrapper extends React.Component<GWProps, GWState>{
         return (
             <div className = "GameContainer">
                 <div className = "GameHeader">
-                    <div className = "PnameO" id = "1">P1: {this.state.match.playerNames[this.playerNo]}</div> 
+                    <div className = "PnameO" id = "1">P1: {this.state.match.playerNames[0]}</div> 
                     <div className = "FirstTo">First To {this.state.match.firstTo}</div>
-                    <div className = "PnameT" id = "2">P2: {this.state.match.playerNames[Math.abs(this.playerNo-1)]}</div>
+                    <div className = "PnameT" id = "2">P2: {this.state.match.playerNames[1]}</div>
                     <div className = "timer">{this.state.timer}</div>
                 </div>
             <div className = "GameFrameContainer"> 
