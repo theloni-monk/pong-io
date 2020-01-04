@@ -14,11 +14,6 @@ import { match } from '../Server/MatchServer';
 import GameWrapper from './GameWrapper';
 const io = require('socket.io-client');
 
-function sleep(ms:number){
-    return new Promise(resolve=>{
-        setTimeout(resolve,ms)
-    })
-}
 
 function renderOpenMatches(matches: any, onclick: any): JSX.Element[] {
     let matchDivs: JSX.Element[] = []
@@ -45,7 +40,6 @@ interface GLState {
     nameSubmitted: boolean;
     openMatches: any;
     matchNameInput: string;
-    error: string;
     matchJoined: boolean;
     matchCreated: boolean;
     matchRecieved: boolean;
@@ -67,7 +61,6 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
             nameSubmitted: false,
             openMatches: {},
             matchNameInput: '',
-            error: '',
             matchCreated: false,
             matchJoined: false,
             matchRecieved: false,
@@ -76,22 +69,20 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
     }
     
     componentDidMount() {
-        this.matchSock = io('http://127.0.0.1:5000'); //TODO: connect to real webserver on rPi
+        this.matchSock = io('http://127.0.0.1:5000'); //TODO: connect to real webserver
         this.matchSock.on('connect', () => this.setState({ connected: this.matchSock.connected }))
         this.matchSock.on('ERROR', (msg: string) => {
             console.log('socket recived err msg: ' + msg);
-            this.setState({ error: msg });
+            alert('ERROR: ' + msg)
             msg === 'match does not exist' ? this.setState({ matchJoined: false }) : this.setState({ matchCreated: false });
         });
         this.matchSock.on('RECV_OPEN_MATCHES', (oMatches: any) => { this.setState({ openMatches: oMatches }) });
-        this.matchSock.on('RECV_MATCH_BY_NAME', (match: match) => { //trigger to render match //TODO: fix needed later - can break if user tries to join invalid
+        this.matchSock.on('RECV_MATCH_BY_NAME', (match: match) => { //trigger to render match 
             this.match = match;
-            
-            this.gameSock = io('http://127.0.0.1:5050',
+            this.gameSock = io(('http://127.0.0.1:' + match.port.toString()),
                 { transportOptions: { polling: { extraHeaders: { 'clientid': this.state.name } } } } 
             );
             console.log('connecting to LiveServer');
-            //FIXME: LiveServer is recieving connection but gameSock.onConnection isn't being called
             this.gameSock.on('creation', () => { 
                 this.setState({ matchRecieved: true,
                                 gameReady: true }); 
@@ -118,7 +109,7 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
     joinMatch = () => {
         this.matchSock.emit('JOIN_MATCH', this.state.matchNameInput, this.state.name)
         this.setState({ matchJoined: true });
-        this.matchSock.emit('GET_MATCH_BY_NAME', this.state.matchNameInput);
+        this.matchSock.on('JOIN_COMPLETE', ()=> {this.matchSock.emit('GET_MATCH_BY_NAME', this.state.matchNameInput);});
     }
 
     createMatch = () => {
@@ -186,7 +177,6 @@ export default class GameLoader extends React.Component<GLProps, GLState>{
                         Match Name: <input className="match-name-input" value={this.state.matchNameInput} onChange={this.updateMatchNameInput} />
                         <button onClick={this.joinMatch}>Join Match</button>
                         <button onClick={this.createMatch}>Create Match</button>
-                        <strong className="error-strong">{this.state.error}</strong>
                     </div>
                 );
             }
