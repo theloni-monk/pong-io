@@ -30,7 +30,6 @@ function sleep(ms: number) {
 
 export interface match {
 	name: string
-	//TODO: creatorId: string; for deleteing based on creator
 	//TODO: password: string; for private games
 	playerNames: string[] // players[0] is always owner
 	isFull: boolean

@@ -57,7 +57,7 @@ io.on('connection', (socket: socketio.Socket) => {
         p1Sock.join('gRoom');
         p1Sock.emit('creation');
         p1Sock.on('GEVENT', (eventType: string, eventParams: any) => { handleGEVENT(p1Sock, eventType, eventParams); });
-        p1Sock.on('disconnect', () => { process.exit(); })
+        p1Sock.on('disconnect', () => { process.exit(); });
         if (p2Sock != null) {
             process.send('Both clients connected');
         }
@@ -67,16 +67,14 @@ io.on('connection', (socket: socketio.Socket) => {
         p2Sock.join('gRoom');
         p2Sock.emit('creation')
         p2Sock.on('GEVENT', (eventType: string, eventParams: any) => { handleGEVENT(p2Sock, eventType, eventParams); });
-        p2Sock.on('disconnect', () => { process.exit(); })
+        p2Sock.on('disconnect', () => { process.exit(); });
         if (p1Sock != null) {
             process.send('Both clients connected');
         }
     }
 });
 
-
-
-process.on('exit', () => { p1Sock.emit('ERROR', 'LiveServer exit'); p2Sock.emit('ERROR', 'LiveServer exit') }) //alert clients on exit
+process.on('exit', () => { p1Sock.emit('ERROR', 'LiveServer exit'); p2Sock.emit('ERROR', 'LiveServer exit') }); //alert clients on exit
 
 //////// HANDLE CLIENT GAME \\\\\\\\\
 var score: number[] = [0, 0];
@@ -108,14 +106,14 @@ class pongball {
     Vx: number
     Vy: number
     rectBounds: number[][]
-    cFlag: String
+    pointFlag: String
     constructor(props: any) {
         this.pos = props.pos;
         this.Vx = props.Vx;
         this.Vy = props.Vy;
         //rectbounds is pos +- size/2
         this.rectBounds = [[this.pos[0] - bSize / 2, this.pos[1] - bSize / 2], [this.pos[0] + bSize / 2, this.pos[1] + bSize / 2]];
-        this.cFlag = "";
+        this.pointFlag = "";
     }
 
     //handles bouncing and collision detection, sets collision flag on player loss
@@ -155,9 +153,9 @@ class pongball {
         }
         // sets p1 or p2 cFlag when it hits goals:
         if (this.rectBounds[0][0] < 0 || this.rectBounds[1][0] > windowbounds[0]) {
-            if (!this.cFlag) {
+            if (!this.pointFlag) {
                 //process.send("wall coll");
-                this.cFlag = (this.rectBounds[0][0] < 0 ? "p1" : "p2");
+                this.pointFlag = (this.rectBounds[0][0] < 0 ? "p1" : "p2");
                 //process.send(this.cFlag + "L");
             }
             this.Vx = 0;
@@ -171,11 +169,9 @@ class paddle {
     yPos: number // top of sprite
     rectBounds: number[][]
     windowbounds: number[]
-    cFlag: String
     constructor(props: any) {
         this.xPos = props.xPos;
         this.yPos = 0;
-
         this.rectBounds = [[this.xPos, this.yPos], [this.xPos + pSize[0], this.yPos + pSize[1]]];
     }
     updatePos = (yPos_M: number) => {
@@ -238,14 +234,13 @@ function update(delta: number): void { //delta in ms ~8.3ms
 
     ball.updatePos(delta, [p1Pos, p2Pos]);
     ballPos = ball.pos;
-    if (ball.cFlag) { 
-        ball.cFlag == "p1" ? score[1]++ : score[0]++;
-        //process.send('cFlag: '+ ball.cFlag);
+    if (ball.pointFlag) { 
+        ball.pointFlag == "p1" ? score[1]++ : score[0]++;
         //process.send('score: '+ score.toString());
         if (score[0] === firstTo || score[1] === firstTo) {
             p1Sock.emit('GAME_END', score);
             p2Sock.emit('GAME_END', score);
-            process.send((ball.cFlag == "p1" ? 'p1' : 'p2') + ' has won')
+            process.send((ball.pointFlag == "p1" ? 'p1' : 'p2') + ' has won')
             pauseLoop(true);
         }
         else {

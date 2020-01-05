@@ -7,7 +7,6 @@ const bSize = 16;
 const pSize = [16, 90];
 const pOffset = 30;
 
-//TODO: fix bouncing math (higher hit, higher angle)
 
 //NOTE: pongball and paddle in this file exist only for predictive rendering, 
 // the objects that actually interact and matter exist on the server
@@ -32,7 +31,6 @@ class pongball {
 		this.pos[0] += this.Vx * delta;
 		this.pos[1] += this.Vy * delta;
 		this.rectBounds = [[this.pos[0] - bSize / 2, this.pos[1] - bSize / 2], [this.pos[0] + bSize / 2, this.pos[1] + bSize / 2]];
-		
 	}
 
 	draw = () => {
@@ -60,7 +58,7 @@ class paddle {
 		this.g = new Pixi.Graphics();
 		this.rectBounds = [[this.xPos, this.yPos], [this.xPos + pSize[0], this.yPos + pSize[1]]];
 	}
-	
+
 	updatePos_mouse = (yPos_M: number) => {
 		//console.log("Coordinates: (" + event.clientX + "," + event.clientY + ")");
 		this.yPos = Math.max(yPos_M, 0);
@@ -68,7 +66,7 @@ class paddle {
 		//console.log("yPos: " + this.yPos);
 		this.rectBounds = [[this.xPos, this.yPos], [this.xPos + pSize[0], this.yPos + pSize[1]]];
 	}
-	
+
 	draw = () => {
 		//console.log("paddle draw called");
 		this.g.clear();
@@ -78,9 +76,6 @@ class paddle {
 	}
 }
 
-function sleep(ms: number) {
-	return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 var socket: SocketIO.Socket;
 
@@ -102,9 +97,6 @@ class GameBase extends React.Component<GBProps, GBState>{
 	public score: number[]
 	public gameOver: boolean
 	protected ball: pongball
-	public dir: number
-	public angle: number
-	public ballVel: number
 	protected paddle1: paddle
 	protected paddle2: paddle
 
@@ -113,7 +105,6 @@ class GameBase extends React.Component<GBProps, GBState>{
 		socket = this.props.socket;
 		this.score = [0, 0];
 		this.G = new Pixi.Graphics();
-		this.ballVel = 2.75; // we immediately add 0.25
 		this.gameOver = false;
 	}
 
@@ -130,37 +121,37 @@ class GameBase extends React.Component<GBProps, GBState>{
 		this.app.stage.addChild(this.G);
 		//this.app.ticker.autoStart = false;
 		//this.app.ticker.stop();
-		socket.on('ERROR',(msg)=>{
+		socket.on('ERROR', (msg) => {
 			alert(msg);
 			window.location.reload(); // reload page on error
 		});
-		socket.on('SCORE',(s:number[])=>{
+		socket.on('SCORE', (s: number[]) => {
 			this.score = s;
 			this.drawScore();
 		});
-		socket.on('GAME_END',(score:number[])=>{
+		socket.on('GAME_END', (score: number[]) => {
 			this.score = score;
 			this.endGame();
 		})
-		
+
 		this.initGame();
 	}
 
-	initGame = () => {
+	initGame() {
 		console.log("begingame called");
 		this.G.clear();
-		
+
 		this.paddle1 = new paddle({
 			xPos: pOffset
 		});
 		this.paddle2 = new paddle({
 			xPos: windowbounds[0] - (pOffset + pSize[0])
 		});
-		socket.on('MEVENT', (mPosP2: number) => { this.updatePaddle2Pos_network(mPosP2) }) 
+		socket.on('MEVENT', (mPosP2: number) => { this.updatePaddle2Pos_network(mPosP2) })
 		this.app.stage.addChild(this.paddle1.g);
 		this.app.stage.addChild(this.paddle2.g);
 
-		
+
 		this.ball = new pongball({
 			size: 20,
 			pos: [windowbounds[0] / 2, windowbounds[1] / 2],
@@ -172,11 +163,11 @@ class GameBase extends React.Component<GBProps, GBState>{
 			this.ball.Vx = ballData.Vx;
 			this.ball.Vy = ballData.Vy;
 		});
-		
+
 		this._updatefuncpointer = (delta: number) => { this.updateGame(delta) }; //create update timer
 		this.app.ticker.add(this._updatefuncpointer);
 
-		
+
 		this.beginButton = new Pixi.Text('Click To Begin', {
 			fontFamily: 'Teko',
 			fontSize: 75,
@@ -196,7 +187,7 @@ class GameBase extends React.Component<GBProps, GBState>{
 			this.app.stage.removeChild(this.beginButton);
 			const waitText = new Pixi.Text(("Waiting for other player"), {
 				fontFamily: 'Teko',
-				fontSize: 70,
+				fontSize: 65,
 				fill: 'white',
 				align: 'center',
 			})
@@ -206,7 +197,7 @@ class GameBase extends React.Component<GBProps, GBState>{
 			waitText.resolution = 2;
 			this.app.stage.addChild(waitText);
 
-			socket.on('GAME_START', () => { 
+			socket.on('GAME_START', () => {
 				console.log('GAME_START received');
 				this.props.domTimer(); //start timer in DOM
 				this.app.stage.removeChild(waitText);
@@ -214,9 +205,9 @@ class GameBase extends React.Component<GBProps, GBState>{
 				this.drawScore();
 				this.app.stage.addChild(this.ball.g);
 			})
-			
-			socket.emit('GEVENT', 'PLAYER_READY', {player: (this.props.isCreator ? 'p1' : 'p2')}); 
-			console.log('I am ' + (this.props.isCreator ? 'p1' : 'p2'))
+
+			socket.emit('GEVENT', 'PLAYER_READY', { player: (this.props.isCreator ? 'p1' : 'p2') });
+			//console.log('I am ' + (this.props.isCreator ? 'p1' : 'p2'))
 		})
 	}
 
@@ -263,7 +254,7 @@ class GameBase extends React.Component<GBProps, GBState>{
 		console.log('scene drawn')
 	}
 
-	drawScore() {
+	drawScore = () => {
 		console.log('Score:', this.score.toString());
 		this.app.stage.removeChild(this.P1score);
 		this.P1score = new Pixi.Text(this.score[0].toString(), {
@@ -350,7 +341,7 @@ class GameBase extends React.Component<GBProps, GBState>{
 
 
 		if (this.paddle1) { this.paddle1.updatePos_mouse(y); }
-		socket.emit('GEVENT', 'MEVENT', {player: (this.props.isCreator? 'p1':'p2'), mPos: y });
+		socket.emit('GEVENT', 'MEVENT', { player: (this.props.isCreator ? 'p1' : 'p2'), mPos: y });
 		//console.log('sent mouse event');
 	}
 
@@ -375,14 +366,13 @@ class GameBase extends React.Component<GBProps, GBState>{
 	componentWillUnmount() {
 		this.app.stop();
 	}
-	
+
 	handlePress = (E: KeyboardEvent) => {
-		//TODO: handle exits over socket
 		switch (E.key) {
 			case "Escape":
 				if (!this.gameOver) { //only close if game is not over
 					console.log("Game Closing on Escape")
-					socket.emit('GEVENT','ESCAPE');
+					socket.emit('GEVENT', 'ESCAPE');
 					this.gameOver = true;
 				}
 				break;
